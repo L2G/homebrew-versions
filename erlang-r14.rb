@@ -14,8 +14,6 @@ class ErlangR14 < Formula
   depends_on "automake" => :build
   depends_on "libtool" => :build
 
-  fails_with :llvm
-
   resource 'man' do
     url 'http://erlang.org/download/otp_doc_man_R14B04.tar.gz'
     sha1 '41f4ea59c9622e39b30882e173983252b6faca81'
@@ -26,9 +24,14 @@ class ErlangR14 < Formula
     sha1 '86f76adee9bf953e5578d7998fda9e7dfc0d43f5'
   end
 
+  patch :p0, :DATA
+
   def install
     ohai "Compilation may take a very long time; use `brew install -v erlang` to see progress"
     ENV.deparallelize
+
+    # This works in tandem with the erlbrew patch
+    ENV.append_to_cflags "-DERTS_DO_INCL_GLB_INLINE_FUNC_DEF"
 
     # Do this if building from a checkout to generate configure
     system "./otp_build autoconf" if File.exist? "otp_build"
@@ -68,3 +71,50 @@ class ErlangR14 < Formula
     system "#{bin}/erl", "-noshell", "-eval", "crypto:start().", "-s", "init", "stop"
   end
 end
+
+# The patch following __END__ comes from the Erlbrew project (https://github.com/mrallen1/erlbrew)
+
+__END__
+--- erts/emulator/beam/beam_bp.c.orig	2011-10-03 13:12:07.000000000 -0500
++++ erts/emulator/beam/beam_bp.c	2013-10-04 13:42:03.000000000 -0500
+@@ -496,7 +496,8 @@
+ }
+ 
+ /* bp_hash */
+-ERTS_INLINE Uint bp_sched2ix() {
++#ifndef ERTS_DO_INCL_GLB_INLINE_FUNC_DEF
++ERTS_GLB_INLINE Uint bp_sched2ix() {
+ #ifdef ERTS_SMP
+     ErtsSchedulerData *esdp;
+     esdp = erts_get_scheduler_data();
+@@ -505,6 +506,7 @@
+     return 0;
+ #endif
+ }
++#endif
+ static void bp_hash_init(bp_time_hash_t *hash, Uint n) {
+     Uint size = sizeof(bp_data_time_item_t)*n;
+     Uint i;
+--- erts/emulator/beam/beam_bp.h.orig	2011-10-03 13:12:07.000000000 -0500
++++ erts/emulator/beam/beam_bp.h	2013-10-04 13:42:08.000000000 -0500
+@@ -144,7 +144,19 @@
+ #define ErtsSmpBPUnlock(BDC)
+ #endif
+ 
+-ERTS_INLINE Uint bp_sched2ix(void);
++ERTS_GLB_INLINE Uint bp_sched2ix(void);
++
++#ifdef ERTS_DO_INCL_GLB_INLINE_FUNC_DEF
++ERTS_GLB_INLINE Uint bp_sched2ix() {
++#ifdef ERTS_SMP
++    ErtsSchedulerData *esdp;
++    esdp = erts_get_scheduler_data();
++    return esdp->no - 1;
++#else
++    return 0;
++#endif
++}
++#endif
+ 
+ #ifdef ERTS_SMP
+ #define bp_sched2ix_proc(p) ((p)->scheduler_data->no - 1)
