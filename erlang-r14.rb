@@ -10,9 +10,14 @@ class ErlangR14 < Formula
   option 'halfword', 'Enable halfword emulator (64-bit builds only)'
   option 'no-docs', 'Do not install documentation'
 
+  # Detection of odbc header files seems to be broken, so let the formula user
+  # decide whether or not this is needed.
+  option "with-odbc", "Also build the Erlang odbc application"
+
   depends_on "autoconf" => :build
   depends_on "automake" => :build
   depends_on "libtool" => :build
+  depends_on "unixodbc" if build.with? "odbc"
 
   resource 'man' do
     url 'http://erlang.org/download/otp_doc_man_R14B04.tar.gz'
@@ -55,6 +60,10 @@ class ErlangR14 < Formula
       args << "--enable-darwin-64bit"
       args << "--enable-halfword-emulator" if build.include? 'halfword' # Does not work with HIPE yet. Added for testing only
     end
+
+    # Detection of odbc library and headers is slightly flaky, so be explicit about
+    # configuring it
+    args << "--#{build.with?("odbc") ? "with" : "without"}-odbc"
 
     system "./configure", *args
     touch "lib/wx/SKIP" if MacOS.version >= :snow_leopard
