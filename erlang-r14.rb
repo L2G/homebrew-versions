@@ -5,6 +5,7 @@ class ErlangR14 < Formula
   # Download tarball from GitHub; it is served faster than the official tarball.
   url 'https://github.com/erlang/otp/archive/OTP_R14B04.tar.gz'
   sha1 '4c8f1dcb5cc9e39e7637a8022a93588823076f0e'
+  revision 1
 
   option 'disable-hipe', 'Disable building hipe; fails on various OS X systems'
   option 'halfword', 'Enable halfword emulator (64-bit builds only)'
@@ -12,12 +13,13 @@ class ErlangR14 < Formula
 
   # Detection of odbc header files seems to be broken, so let the formula user
   # decide whether or not this is needed.
-  option "with-odbc", "Also build the Erlang odbc application"
+  option "with-odbc", "Build the Erlang odbc application"
 
   depends_on "autoconf" => :build
   depends_on "automake" => :build
   depends_on "libtool" => :build
   depends_on "unixodbc" if build.with? "odbc"
+  depends_on "openssl"
 
   resource 'man' do
     url 'http://erlang.org/download/otp_doc_man_R14B04.tar.gz'
@@ -29,6 +31,9 @@ class ErlangR14 < Formula
     sha1 '86f76adee9bf953e5578d7998fda9e7dfc0d43f5'
   end
 
+  # This applies a patch from the Erlbrew project
+  # (https://github.com/mrallen1/erlbrew) that fixes build
+  # errors with llvm-gcc and clang.
   patch :p0, :DATA
 
   def install
@@ -63,7 +68,7 @@ class ErlangR14 < Formula
 
     # Detection of odbc library and headers is slightly flaky, so be explicit about
     # configuring it
-    args << "--#{build.with?("odbc") ? "with" : "without"}-odbc"
+    args << (build.with?("odbc") ? "--with-odbc" : "--without-odbc")
 
     system "./configure", *args
     touch "lib/wx/SKIP" if MacOS.version >= :snow_leopard
@@ -80,8 +85,6 @@ class ErlangR14 < Formula
     system "#{bin}/erl", "-noshell", "-eval", "crypto:start().", "-s", "init", "stop"
   end
 end
-
-# The patch following __END__ comes from the Erlbrew project (https://github.com/mrallen1/erlbrew)
 
 __END__
 --- erts/emulator/beam/beam_bp.c.orig	2011-10-03 13:12:07.000000000 -0500
